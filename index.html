@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+
+<head>
+<link rel="icon" href="favicon.jpg">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Handwriting to Text Converter</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js'></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+            color: #1f2937;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        .dark body {
+            background-color: #1f2937;
+            color: #d1d5db;
+        }
+
+        .dark .bg-white {
+            background-color: #374151;
+        }
+
+        .dark .bg-gray-100 {
+            background-color: #4b5563;
+        }
+
+        .dark .text-gray-800 {
+            color: #f3f4f6;
+        }
+
+        .dark .border-gray-300 {
+            border-color: #4b5563;
+        }
+
+        .dark .focus\:ring-blue-500:focus {
+            --tw-ring-color: #60a5fa;
+        }
+
+        .dark .text-blue-600 {
+            color: #60a5fa;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 75%;
+            max-width: 640px;
+            margin: auto;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .video-container video,
+        .video-container canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        #cameraVideo {
+            transform: scaleX(-1);
+        }
+
+        #cameraCanvas {
+            background-color: black;
+        }
+        
+        /* Progress Bar styles */
+        #progressBarContainer {
+            height: 8px;
+            background-color: #e5e7eb;
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+
+        #progressBar {
+            height: 100%;
+            width: 0%;
+            background-color: #3b82f6;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 text-gray-800 transition-colors duration-300">
+    <div class="max-w-4xl mx-auto p-4 md:p-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-6">
+            <h1 class="text-3xl md:text-4xl font-extrabold text-blue-600">NoteScanner</h1>
+            <div class="flex items-center space-x-4">
+                <button id="themeToggle" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200" aria-label="Toggle dark mode">
+                    <i class="fas fa-sun text-xl text-yellow-500 dark:hidden"></i>
+                    <i class="fas fa-moon text-xl text-gray-400 hidden dark:inline"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Home Page -->
+        <div id="homePage" class="flex flex-col items-center justify-center text-center py-16">
+            <h2 class="text-4xl md:text-6xl font-extrabold text-gray-900 dark:text-white mb-4">Welcome to NoteScanner</h2>
+            <p class="text-lg md:text-xl text-gray-600 dark:text-gray-400 mb-8 max-w-lg">
+                Your offline companion for converting handwritten notes into digital text, effortlessly and with precision.
+            </p>
+            <button id="getStartedBtn" class="px-8 py-4 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105 text-lg">
+                Get Started
+            </button>
+        </div>
+
+        <!-- Main Content Area (hidden by default) -->
+        <div id="mainApp" class="hidden">
+            <!-- Description -->
+            <p class="text-center text-gray-600 dark:text-gray-400 mb-8">
+                Instantly convert handwritten notes to editable text, all on your device. Works completely offline!
+            </p>
+
+            <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-6 md:p-8 space-y-6">
+
+                <!-- Input Buttons -->
+                <div id="inputButtons" class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
+                    <button id="cameraBtn" class="flex items-center justify-center space-x-2 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-camera"></i>
+                        <span>Start Camera</span>
+                    </button>
+                    <label for="fileInput" class="cursor-pointer flex items-center justify-center space-x-2 px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-300 font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+                        <i class="fas fa-upload"></i>
+                        <span>Upload Image</span>
+                    </label>
+                    <input type="file" id="fileInput" class="hidden" accept="image/*">
+                </div>
+
+                <!-- Camera & Canvas Display -->
+                <div id="captureArea" class="hidden">
+                    <div class="video-container mb-6">
+                        <video id="cameraVideo" autoplay playsinline></video>
+                        <canvas id="cameraCanvas"></canvas>
+                    </div>
+                    <div class="flex flex-col sm:flex-row justify-center space-y-4 sm:space-y-0 sm:space-x-4">
+                        <button id="takePhotoBtn" class="flex-1 px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+                            <i class="fas fa-camera"></i>
+                            <span>Take Photo</span>
+                        </button>
+                        <button id="cancelBtn" class="flex-1 px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+                            <i class="fas fa-times"></i>
+                            <span>Cancel</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- OCR Result & Status -->
+                <div id="resultArea" class="hidden">
+                    <div id="statusContainer" class="flex flex-col items-center mb-4">
+                        <p id="statusMsg" class="text-sm text-gray-600 dark:text-gray-400 mb-2 font-medium">Ready</p>
+                        <div id="progressBarContainer" class="w-full">
+                            <div id="progressBar"></div>
+                        </div>
+                    </div>
+
+                    <textarea id="resultText" rows="10" class="w-full p-4 border border-gray-300 dark:border-gray-600 rounded-lg shadow-inner text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-700 resize-none outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"></textarea>
+
+                    <!-- Action Buttons -->
+                    <div class="flex flex-col sm:flex-row justify-end space-y-4 sm:space-y-0 sm:space-x-4 mt-6">
+                        <button id="copyBtn" class="flex items-center justify-center space-x-2 px-6 py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+                            <i class="fas fa-clipboard"></i>
+                            <span>Copy Text</span>
+                        </button>
+                        <button id="downloadBtn" class="flex items-center justify-center space-x-2 px-6 py-3 bg-purple-500 hover:bg-purple-600 text-white font-bold rounded-full shadow-lg transition-transform transform hover:scale-105">
+                            <i class="fas fa-download"></i>
+                            <span>Download .txt</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Help & Tips Section -->
+                <div class="border-t border-gray-200 dark:border-gray-700 pt-6 mt-6">
+                    <h3 class="text-lg font-bold text-gray-700 dark:text-gray-300 mb-2">Tips for Best Results:</h3>
+                    <ul class="text-sm text-gray-500 dark:text-gray-400 list-disc list-inside space-y-1">
+                        <li>Use good, even lighting on your text.</li>
+                        <li>Ensure your handwriting is clear and legible.</li>
+                        <li>Place your camera directly over the document to avoid skewed images.</li>
+                        <li>Avoid shadows or glare on the page.</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const homePage = document.getElementById('homePage');
+            const mainApp = document.getElementById('mainApp');
+            const getStartedBtn = document.getElementById('getStartedBtn');
+            const cameraBtn = document.getElementById('cameraBtn');
+            const takePhotoBtn = document.getElementById('takePhotoBtn');
+            const cancelBtn = document.getElementById('cancelBtn');
+            const fileInput = document.getElementById('fileInput');
+            const copyBtn = document.getElementById('copyBtn');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const inputButtons = document.getElementById('inputButtons');
+            const captureArea = document.getElementById('captureArea');
+            const resultArea = document.getElementById('resultArea');
+            const cameraVideo = document.getElementById('cameraVideo');
+            const cameraCanvas = document.getElementById('cameraCanvas');
+            const statusMsg = document.getElementById('statusMsg');
+            const progressBar = document.getElementById('progressBar');
+            const resultText = document.getElementById('resultText');
+            const themeToggle = document.getElementById('themeToggle');
+
+            let videoStream = null;
+            
+            // --- UI State Management ---
+            const showHomePage = () => {
+                homePage.classList.remove('hidden');
+                mainApp.classList.add('hidden');
+            };
+
+            const showMainApp = () => {
+                homePage.classList.add('hidden');
+                mainApp.classList.remove('hidden');
+            };
+            
+            const showCaptureArea = () => {
+                inputButtons.classList.add('hidden');
+                captureArea.classList.remove('hidden');
+                resultArea.classList.add('hidden');
+            };
+
+            const showResultArea = () => {
+                inputButtons.classList.add('hidden');
+                captureArea.classList.add('hidden');
+                resultArea.classList.remove('hidden');
+            };
+
+            const showInitialState = () => {
+                inputButtons.classList.remove('hidden');
+                captureArea.classList.add('hidden');
+                resultArea.classList.add('hidden');
+                stopCamera();
+                updateStatus('Ready', 0);
+            };
+            
+            // --- Home Page Button ---
+            getStartedBtn.addEventListener('click', () => {
+                showMainApp();
+                showInitialState();
+            });
+
+            // --- Camera Functionality ---
+            cameraBtn.addEventListener('click', async () => {
+                try {
+                    showCaptureArea();
+                    const constraints = {
+                        video: {
+                            facingMode: 'environment'
+                        }
+                    };
+                    videoStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    cameraVideo.srcObject = videoStream;
+                    cameraVideo.play();
+                    
+                    cameraVideo.classList.remove('hidden');
+                    cameraCanvas.classList.add('hidden');
+
+                } catch (err) {
+                    console.error('Error accessing the camera:', err);
+                    updateStatus('Error: Could not access camera. Please check permissions.', 0);
+                    showInitialState();
+                }
+            });
+
+            takePhotoBtn.addEventListener('click', () => {
+                if (videoStream) {
+                    const videoWidth = cameraVideo.videoWidth;
+                    const videoHeight = cameraVideo.videoHeight;
+
+                    cameraCanvas.width = videoWidth;
+                    cameraCanvas.height = videoHeight;
+                    const context = cameraCanvas.getContext('2d');
+                    context.drawImage(cameraVideo, 0, 0, videoWidth, videoHeight);
+
+                    stopCamera();
+                    
+                    cameraVideo.classList.add('hidden');
+                    cameraCanvas.classList.remove('hidden');
+                    
+                    runOCR(cameraCanvas);
+                }
+            });
+
+            cancelBtn.addEventListener('click', () => {
+                showInitialState();
+            });
+
+            const stopCamera = () => {
+                if (videoStream) {
+                    videoStream.getTracks().forEach(track => track.stop());
+                }
+                cameraVideo.srcObject = null;
+                videoStream = null;
+            };
+
+            // --- File Upload Functionality ---
+            fileInput.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        cameraCanvas.width = img.width;
+                        cameraCanvas.height = img.height;
+                        const context = cameraCanvas.getContext('2d');
+                        context.drawImage(img, 0, 0);
+                        
+                        showCaptureArea();
+                        cameraVideo.classList.add('hidden');
+                        cameraCanvas.classList.remove('hidden');
+                        
+                        runOCR(cameraCanvas);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // --- Image Preprocessing & OCR Processing ---
+            const preprocessImage = (image) => {
+                const preprocessedCanvas = document.createElement('canvas');
+                const ctx = preprocessedCanvas.getContext('2d');
+                
+                preprocessedCanvas.width = image.width;
+                preprocessedCanvas.height = image.height;
+                ctx.drawImage(image, 0, 0);
+
+                const imageData = ctx.getImageData(0, 0, preprocessedCanvas.width, preprocessedCanvas.height);
+                const data = imageData.data;
+                const threshold = 128;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                    const color = avg > threshold ? 255 : 0;
+                    data[i] = color;
+                    data[i + 1] = color;
+                    data[i + 2] = color;
+                }
+                ctx.putImageData(imageData, 0, 0);
+                return preprocessedCanvas;
+            };
+            
+            const updateStatus = (message, progress) => {
+                statusMsg.textContent = message;
+                progressBar.style.width = `${progress * 100}%`;
+            };
+
+            const runOCR = async (image) => {
+                if (!image) return;
+
+                showResultArea();
+                resultText.value = '';
+                
+                updateStatus('Preprocessing image...', 0);
+                const preprocessedImage = preprocessImage(image);
+
+                updateStatus('Recognizing text...', 0);
+                
+                try {
+                    const {
+                        data: {
+                            text
+                        }
+                    } = await Tesseract.recognize(preprocessedImage, 'eng', {
+                        logger: m => {
+                            if (m.status === 'recognizing text') {
+                                updateStatus('Recognizing text...', m.progress);
+                            } else {
+                                updateStatus(m.status, m.progress);
+                            }
+                        }
+                    });
+                    
+                    resultText.value = text.trim();
+                    updateStatus('Done! Text recognized successfully.', 1);
+                    
+                } catch (error) {
+                    console.error('OCR failed:', error);
+                    updateStatus('Error: OCR failed to recognize text.', 0);
+                    resultText.value = 'Failed to recognize text. Please try again with a clearer image.';
+                }
+            };
+
+            // --- Output Actions ---
+            copyBtn.addEventListener('click', () => {
+                resultText.select();
+                try {
+                    document.execCommand('copy');
+                    statusMsg.textContent = 'Text copied to clipboard!';
+                } catch (err) {
+                    statusMsg.textContent = 'Failed to copy text. Please select and copy manually.';
+                }
+            });
+
+            downloadBtn.addEventListener('click', () => {
+                const textToSave = resultText.value;
+                if (!textToSave) {
+                    statusMsg.textContent = 'No text to download.';
+                    return;
+                }
+                const blob = new Blob([textToSave], {
+                    type: 'text/plain'
+                });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'handwriting.txt';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                statusMsg.textContent = 'File downloaded successfully.';
+            });
+
+            // --- Dark/Light Mode Toggle ---
+            themeToggle.addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+            });
+
+            // Initial state
+            showHomePage();
+        });
+    </script>
+</body>
+</html>
